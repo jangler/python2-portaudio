@@ -314,6 +314,48 @@ static int paTestCallback(const void *inputBuffer, void *outputBuffer,
 
 /* module functions */
 
+static PyObject *get_default_input_device(PyObject *self, PyObject *args) {
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+
+    PaDeviceIndex index = Pa_GetDefaultInputDevice();
+    if (index < 0) {
+        PyErr_SetString(PortAudioError, Pa_GetErrorText(index));
+        return NULL;
+    }
+    PyObject *result = PyInt_FromLong(index);
+    Py_INCREF(result);
+    return result;
+}
+
+static PyObject *get_default_output_device(PyObject *self, PyObject *args) {
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+
+    PaDeviceIndex index = Pa_GetDefaultOutputDevice();
+    if (index < 0) {
+        PyErr_SetString(PortAudioError, Pa_GetErrorText(index));
+        return NULL;
+    }
+    PyObject *result = PyInt_FromLong(index);
+    Py_INCREF(result);
+    return result;
+}
+
+static PyObject *get_device_count(PyObject *self, PyObject *args) {
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+
+    PaDeviceIndex count = Pa_GetDeviceCount();
+    if (count < 0) {
+        PyErr_SetString(PortAudioError, Pa_GetErrorText(count));
+        return NULL;
+    }
+    PyObject *result = PyInt_FromLong(count);
+    Py_INCREF(result);
+    return result;
+}
+
 static PyObject *get_last_host_error_info(PyObject *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, ""))
         return NULL;
@@ -335,6 +377,28 @@ static PyObject *get_device_index(PyObject *self, PyObject *args) {
         return NULL;
     }
     PyObject *result = PyInt_FromLong(index);
+    Py_INCREF(result);
+    return result;
+}
+
+static PyObject *get_device_info(PyObject *self, PyObject *args) {
+    int device;
+    if (!PyArg_ParseTuple(args, "i", &device))
+        return NULL;
+
+    const PaDeviceInfo *info = Pa_GetDeviceInfo(device);
+    if (!info) {
+        PyErr_SetString(PortAudioError, "unspecified error");
+        return NULL;
+    }
+    PyObject *result = Py_BuildValue("siiifffff", info->name, info->hostApi,
+                                     info->maxInputChannels,
+                                     info->maxOutputChannels,
+                                     info->defaultLowInputLatency,
+                                     info->defaultLowOutputLatency,
+                                     info->defaultHighInputLatency,
+                                     info->defaultHighOutputLatency,
+                                     info->defaultSampleRate);
     Py_INCREF(result);
     return result;
 }
@@ -512,6 +576,35 @@ static PyObject *terminate(PyObject *self, PyObject *args) {
 }
 
 static PyMethodDef PortAudioMethods[] = {
+    {"get_device_info", get_device_info, METH_VARARGS,
+     "get_device_info(index) -> (str, int, int, int, float, float,\n"
+     "                           float, float, float)\n\n"
+     "Retrieve a tuple contining information about the device at\n"
+     "'index'.\n\n"
+     "    [0] : name\n"
+     "    [1] : host API index\n"
+     "    [2] : maximum number of input channels\n"
+     "    [3] : maximum number of output channels\n"
+     "    [4] : default latency value for interactive input\n"
+     "    [5] : default latency value for interactive output\n"
+     "    [6] : default latency value for non-interactive input\n"
+     "    [7] : default latency value for non-interactive output\n"
+     "    [8] : default sample rate\n\n"
+     "May raise portaudio.Error."},
+    {"get_default_input_device", get_default_input_device, METH_VARARGS,
+     "get_default_input_device() -> int\n\n"
+     "Retrieve the index of the default input device. The result can be\n"
+     "used in the input device parameter to open_stream(). May raise\n"
+     "portaudio.Error."},
+    {"get_default_output_device", get_default_output_device, METH_VARARGS,
+     "get_default_output_device() -> int\n\n"
+     "Retrieve the index of the default output device. The result can be\n"
+     "used in the output device parameter to open_stream(). May raise\n"
+     "portaudio.Error."},
+    {"get_device_count", get_device_count, METH_VARARGS,
+     "get_device_count() -> int\n\n"
+     "Retrieve the number of available devices. The number of available\n"
+     "devices may be 0. May raise portaudio.Error."},
     {"get_last_host_error_info", get_last_host_error_info, METH_VARARGS,
      "get_last_host_error_info() -> (int, str)\n\n"
      "Return information about the last host error encountered. This\n"
