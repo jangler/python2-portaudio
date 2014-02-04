@@ -314,6 +314,46 @@ static int paTestCallback(const void *inputBuffer, void *outputBuffer,
 
 /* module functions */
 
+static PyObject *get_last_host_error_info(PyObject *self, PyObject *args) {
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+
+    const PaHostErrorInfo *info = Pa_GetLastHostErrorInfo();
+    PyObject *result = Py_BuildValue("ls", info->errorCode, info->errorText);
+    Py_INCREF(result);
+    return result;
+}
+
+static PyObject *get_device_index(PyObject *self, PyObject *args) {
+    int api, device;
+    if (!PyArg_ParseTuple(args, "ii", &api, &device))
+        return NULL;
+
+    PaDeviceIndex index = Pa_HostApiDeviceIndexToDeviceIndex(api, device);
+    if (index < 0) {
+        PyErr_SetString(PortAudioError, Pa_GetErrorText(index));
+        return NULL;
+    }
+    PyObject *result = PyInt_FromLong(index);
+    Py_INCREF(result);
+    return result;
+}
+
+static PyObject *get_host_api_index(PyObject *self, PyObject *args) {
+    int type;
+    if (!PyArg_ParseTuple(args, "i", &type))
+        return NULL;
+
+    PaHostApiIndex index = Pa_HostApiTypeIdToHostApiIndex(type);
+    if (index < 0) {
+        PyErr_SetString(PortAudioError, Pa_GetErrorText(index));
+        return NULL;
+    }
+    PyObject *result = PyInt_FromLong(index);
+    Py_INCREF(result);
+    return result;
+}
+
 static PyObject *get_default_host_api(PyObject *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, ""))
         return NULL;
@@ -472,6 +512,23 @@ static PyObject *terminate(PyObject *self, PyObject *args) {
 }
 
 static PyMethodDef PortAudioMethods[] = {
+    {"get_last_host_error_info", get_last_host_error_info, METH_VARARGS,
+     "get_last_host_error_info() -> (int, str)\n\n"
+     "Return information about the last host error encountered. This\n"
+     "function is provided as a last resort, primarily to enhance\n"
+     "debugging by providing clients with access to all available error\n"
+     "information. The values returned will only be valid if a PortAudio\n"
+     "function has previously returned an 'unanticipated host' error."}, 
+    {"get_device_index", get_device_index, METH_VARARGS,
+     "get_device_index(host_api_index, host_api_device_index) -> int\n\n"
+     "Convert a host-API-specific device index to standard PortAudio\n"
+     "device index. This function may be used in conjunction with the\n"
+     "device count of get_host_api_info() to enumerate all devices for\n"
+     "the specified host API. May raise portaudio.Error."},
+    {"get_host_api_index", get_host_api_index, METH_VARARGS,
+     "get_host_api_index(type_id) -> int\n\n"
+     "Convert a static host API unique identifier into a runtime host\n"
+     "API index. May raise portaudio.Error."},
     {"get_default_host_api", get_default_host_api, METH_VARARGS,
      "get_default_host_api() -> int\n\n"
      "Retrieve the index of the default host API. The default host API\n"
@@ -488,8 +545,8 @@ static PyMethodDef PortAudioMethods[] = {
      "    host API for display on user interfaces.\n\n"
      "    get_host_api_info(index)[2] : The number of devices belonging\n"
      "    to this host API. This field may be used in conjunction with\n"
-     "    host_api_device_index_to_device_index() to enumerate all\n"
-     "    devices for this host API.\n\n"
+     "    get_device_index() to enumerate all devices for this host\n"
+     "    API.\n\n"
      "    get_host_api_info(index)[3] : The default index for this host\n"
      "    API. The value will be a device index ranging from 0 to\n"
      "    (get_device_count() - 1), or portaudio.NO_DEVICE if no default\n"
