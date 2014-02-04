@@ -23,7 +23,7 @@ def callback(in_list, out_list, time_info, user_data):
         func = sine_wave
     elif user_data[0] < NOTE_FREQUENCY * 3:
         func = square_wave
-    elif user_data[0] < NOTE_FREQUENCY * 4:
+    else:
         func = white_noise
 
     for i in range(0, len(out_list), 2):
