@@ -314,6 +314,20 @@ static int paTestCallback(const void *inputBuffer, void *outputBuffer,
 
 /* module functions */
 
+static PyObject *get_default_host_api(PyObject *self, PyObject *args) {
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+
+    PaHostApiIndex index = Pa_GetDefaultHostApi();
+    if (index < 0) {
+        PyErr_SetString(PortAudioError, Pa_GetErrorText(index));
+        return NULL;
+    }
+    PyObject *result = PyInt_FromLong(index);
+    Py_INCREF(result);
+    return result;
+}
+
 static PyObject *get_host_api_count(PyObject *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, ""))
         return NULL;
@@ -458,6 +472,12 @@ static PyObject *terminate(PyObject *self, PyObject *args) {
 }
 
 static PyMethodDef PortAudioMethods[] = {
+    {"get_default_host_api", get_default_host_api, METH_VARARGS,
+     "get_default_host_api() -> int\n\n"
+     "Retrieve the index of the default host API. The default host API\n"
+     "will be the lowest common denominator host API on the current\n"
+     "platform and is unlikely to provide the best performance. May\n"
+     "raise portaudio.Error."},
     {"get_host_api_info", get_host_api_info, METH_VARARGS,
      "get_host_api_info(index) -> (int, string, int, int, int)\n\n"
      "Retrieve a tuple containing information about the host API at\n"
@@ -558,6 +578,21 @@ PyMODINIT_FUNC initportaudio(void) {
     PyModule_AddIntConstant(m, "CONTINUE", paContinue);
     PyModule_AddIntConstant(m, "COMPLETE", paComplete);
     PyModule_AddIntConstant(m, "ABORT", paAbort);
+
+    PyModule_AddIntConstant(m, "IN_DEVELOPMENT", paInDevelopment);
+    PyModule_AddIntConstant(m, "DIRECT_SOUND", paDirectSound);
+    PyModule_AddIntConstant(m, "MME", paMME);
+    PyModule_AddIntConstant(m, "ASIO", paASIO);
+    PyModule_AddIntConstant(m, "SOUND_MANAGER", paSoundManager);
+    PyModule_AddIntConstant(m, "CORE_AUDIO", paCoreAudio);
+    PyModule_AddIntConstant(m, "OSS", paOSS);
+    PyModule_AddIntConstant(m, "ALSA", paALSA);
+    PyModule_AddIntConstant(m, "AL", paAL);
+    PyModule_AddIntConstant(m, "BE_OS", paBeOS);
+    PyModule_AddIntConstant(m, "WDMKS", paWDMKS);
+    PyModule_AddIntConstant(m, "JACK", paJACK);
+    PyModule_AddIntConstant(m, "WASAPI", paWASAPI);
+    PyModule_AddIntConstant(m, "AUDIO_SCIENCE_HPI", paAudioScienceHPI);
 
     if (!PyEval_ThreadsInitialized()) {
         PyEval_InitThreads();
