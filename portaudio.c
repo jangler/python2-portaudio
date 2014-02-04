@@ -179,7 +179,7 @@ static PyMethodDef Stream_methods[] = {
      "stream.get_cpu_load() -> float\n\n"
      "Retrieve CPU usage information for the stream. The \"CPU load\" is a\n"
      "fraction of total CPU time consumed by a callback stream's audio\n"
-     "processing routines including, but not limited to the client-supplied\n"
+     "processing routines including, but not limited to, the client-supplied\n"
      "stream callback. This function returns a value, typically between 0.0\n"
      "and 1.0, where 1.0 indicates that the stream callback is consuming the\n"
      "maximum number of CPU cycles possible to maintain real-time operation.\n"
@@ -188,27 +188,28 @@ static PyMethodDef Stream_methods[] = {
     {"is_stopped", (PyCFunction)Stream_is_stopped, METH_VARARGS,
      "stream.is_stopped() -> bool\n\n"
      "Determine whether the stream is stopped. A stream is considered to be\n"
-     "stopped prioer to a successful call to stream.start() and after a\n"
+     "stopped prior to a successful call to stream.start() and after a\n"
      "successful call to stream.stop() or stream.abort(). If a stream\n"
      "callback returns a value other than portaudio.CONTINUE the stream is\n"
      "NOT considered to be stopped. May raise portaudio.Error."},
     {"get_info", (PyCFunction)Stream_get_info, METH_VARARGS,
      "stream.get_info() -> (float, float, float)\n\n"
      "Retrieve a tuple containing information about the stream.\n\n"
-     "    stream.get_info()[0] : The input latency of the stream in seconds\n"
+     "    stream.get_info()[0] : The input latency of the stream in seconds.\n"
      "    This value provides the most accurate estimate of input latency\n"
      "    available to the implementation. It may differ significantly from\n"
      "    the suggested latency value passed to open_stream(). The value of\n"
      "    this field will be 0.0 for output-only streams.\n\n"
-     "    stream.get_info()[1] : The output latency of the stream in seconds\n"
-     "    This value provides the most accurate estimate of output latency\n"
-     "    available to the implementation. It may differ significantly from\n"
-     "    the suggested latency value passed to open_stream(). The value of\n"
-     "    this field will be 0.0 for input-only streams.\n\n"
+     "    stream.get_info()[1] : The output latency of the stream in\n"
+     "    seconds. This value provides the most accurate estimate of output\n"
+     "    latency available to the implementation. It may differ\n"
+     "    significantly from the suggested latency value passed to\n"
+     "    open_stream(). The value of this field will be 0.0 for input-only\n"
+     "    streams.\n\n"
      "    stream.get_info()[2] : The sample rate of the stream in Hertz\n"
      "    (samples per second). In cases where the hardware sample rate is\n"
      "    inaccurate and PortAudio is aware of it, the value of this field\n"
-     "    may be different from the sample rate parameter passed to"
+     "    may be different from the sample rate parameter passed to\n"
      "    open_stream(). If information about the actual hardware sample\n"
      "    rate is not available, this field will have the same value as the\n"
      "    sample rate parameter passed to open_stream()."},
@@ -252,81 +253,6 @@ static PyTypeObject StreamType = {
     Stream_methods, /* tp_methods */
 };
 
-/* TimeInfo (PaStreamCallbackTimeInfo) */
-
-typedef struct {
-    PyObject_HEAD
-    PaStreamCallbackTimeInfo *info;
-} TimeInfo;
-
-static void TimeInfo_dealloc(TimeInfo* self) {
-    Py_XDECREF(self->info);
-    self->ob_type->tp_free((PyObject*)self);
-}
-
-static PyObject *TimeInfo_current_time(TimeInfo *self) {
-    PyObject *result;
-    result = PyFloat_FromDouble(self->info->currentTime);
-    return result;
-}
-
-static PyObject *TimeInfo_input_time(TimeInfo *self) {
-    PyObject *result;
-    result = PyFloat_FromDouble(self->info->inputBufferAdcTime);
-    return result;
-}
-
-static PyObject *TimeInfo_output_time(TimeInfo *self) {
-    PyObject *result;
-    result = PyFloat_FromDouble(self->info->outputBufferDacTime);
-    return result;
-}
-
-static PyMethodDef TimeInfo_methods[] = {
-    {"current_time", (PyCFunction)TimeInfo_current_time, METH_NOARGS,
-     "The time when the stream callback was invoked."},
-    {"input_time", (PyCFunction)TimeInfo_input_time, METH_NOARGS,
-     "The time when the first sample of the input buffer was captured at the "
-     "ADC input."},
-    {"output_time", (PyCFunction)TimeInfo_output_time, METH_NOARGS,
-     "The time when the first sample of the output buffer will output the "
-     "DAC."},
-    {NULL},
-};
-
-static PyTypeObject TimeInfoType = {
-    PyObject_HEAD_INIT(NULL)
-    0, /* ob_size */
-    "portaudio.TimeInfo", /* tp_name */
-    sizeof(TimeInfo), /* tp_basicsize */
-    0, /* tp_itemsize */
-    (destructor)TimeInfo_dealloc, /* tp_dealloc */
-    0, /* tp_print */
-    0, /* tp_getattr */
-    0, /* tp_setattr */
-    0, /* tp_compare */
-    0, /* tp_repr */
-    0, /* tp_as_number */
-    0, /* tp_as_sequence */
-    0, /* tp_as_mapping */
-    0, /* tp_hash */
-    0, /* tp_call */
-    0, /* tp_str */
-    0, /* tp_getattro */
-    0, /* tp_setattro */
-    0, /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT, /* tp_flags */
-    "Time information for the buffers passed to the stream "
-    "callback.", /* tp_str */
-    0, /* tp_traverse */
-    0, /* tp_clear */
-    0, /* tp_richcompare */
-    0, /* tp_weaklistoffset */
-    0, /* tp_iter */
-    0, /* tp_iternext */
-    TimeInfo_methods, /* tp_methods */
-};
-
 /* unexposed utility functions */
 
 static PyObject *my_callback;
@@ -350,9 +276,9 @@ static int paTestCallback(const void *inputBuffer, void *outputBuffer,
         PyList_SetItem(outputList, i+1, value2);
     }
 
-    TimeInfo *time;
-    time = (TimeInfo*)TimeInfoType.tp_alloc(&TimeInfoType, 0);
-    time->info = (PaStreamCallbackTimeInfo*)(timeInfo);
+    PyObject *time = Py_BuildValue("fff", timeInfo->inputBufferAdcTime,
+                                   timeInfo->currentTime,
+                                   timeInfo->outputBufferDacTime);
 
     PyObject *arglist, *py_result;
     arglist = Py_BuildValue("OOOO", inputList, outputList, time, userData);
@@ -375,6 +301,21 @@ static int paTestCallback(const void *inputBuffer, void *outputBuffer,
 }
 
 /* module functions */
+
+static PyObject *get_sample_size(PyObject *self, PyObject *args) {
+    unsigned long format;
+    if (!PyArg_ParseTuple(args, "k", &format))
+        return NULL;
+    
+    PaError size = Pa_GetSampleSize(format);
+    if (size == paSampleFormatNotSupported) {
+        PyErr_SetString(PortAudioError, Pa_GetErrorText(size));
+        return NULL;
+    }
+    PyObject *result = PyInt_FromLong(size);
+    Py_INCREF(result);
+    return result;
+}
 
 static PyObject *get_version(PyObject *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, ""))
@@ -511,6 +452,10 @@ static PyMethodDef PortAudioMethods[] = {
      "a program which uses PortAudio. Failure to do so may result in serious\n"
      "resource leaks, such as audio devices not being available until the\n"
      "next reboot."},
+    {"get_sample_size", get_sample_size, METH_VARARGS,
+     "get_sample_size(format) -> int\n\n"
+     "Retrive the size of a given sample format in bytes. May raise\n"
+     "portaudio.Error if the format is not supported."},
     {NULL, NULL, 0, NULL},
 };
 
@@ -520,16 +465,11 @@ static PyMethodDef PortAudioMethods[] = {
 PyMODINIT_FUNC initportaudio(void) {
     PyObject *m;
 
-    if (PyType_Ready(&TimeInfoType) < 0)
-        return;
-    StreamType.tp_new = PyType_GenericNew;
     if (PyType_Ready(&StreamType) < 0)
         return;
 
     m = Py_InitModule("portaudio", PortAudioMethods);
 
-    Py_INCREF(&TimeInfoType);
-    PyModule_AddObject(m, "TimeInfo", (PyObject*)&TimeInfoType);
     Py_INCREF(&StreamType);
     PyModule_AddObject(m, "Stream", (PyObject*)&StreamType);
 
