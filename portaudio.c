@@ -165,6 +165,24 @@ static PyTypeObject TimeInfoType = {
 
 /* module functions */
 
+static PyObject *get_version(PyObject *self, PyObject *args) {
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+    
+    PyObject *result = PyInt_FromLong(Pa_GetVersion());
+    Py_INCREF(result);
+    return result;
+}
+
+static PyObject *get_version_text(PyObject *self, PyObject *args) {
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+    
+    PyObject *result = PyString_FromString(Pa_GetVersionText());
+    Py_INCREF(result);
+    return result;
+}
+
 static PyObject *initialize(PyObject *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, ""))
         return NULL;
@@ -191,7 +209,7 @@ static int paTestCallback(const void *inputBuffer, void *outputBuffer,
     gstate = PyGILState_Ensure();
 
     PyObject *inputList, *outputList;
-    inputList = PyList_New(framesPerBuffer * 2);
+    inputList = PyList_New(0);
     outputList = PyList_New(framesPerBuffer * 2);
     int i;
     for (i = 0; i < framesPerBuffer * 2; i += 2) {
@@ -224,35 +242,6 @@ static int paTestCallback(const void *inputBuffer, void *outputBuffer,
     PyGILState_Release(gstate);
 
     return result;
-}
-
-typedef struct {
-    float left_phase, right_phase;
-} paTestData;
-
-static paTestData data;
-
-static int testCallback(const void *inputBuffer, void *outputBuffer,
-                        unsigned long framesPerBuffer,
-                        const PaStreamCallbackTimeInfo *timeInfo,
-                        PaStreamCallbackFlags statusFlags,
-                        void *userData) {
-    paTestData *data = (paTestData*)userData;
-    float *out = (float*)outputBuffer;
-    unsigned int i;
-    (void) inputBuffer;
-
-    for (i = 0; i < framesPerBuffer; i++) {
-        *out++ = data->left_phase;
-        *out++ = data->right_phase;
-        data->left_phase += 0.01f;
-        if (data->left_phase >= 1.0f)
-            data->left_phase -= 2.0f;
-        data->right_phase += 0.01f;
-        if (data->right_phase >= 1.0f)
-            data->right_phase -= 2.0f;
-    }
-    return 0;
 }
 
 static PyObject *open_default_stream(PyObject *self, PyObject *args) {
@@ -318,71 +307,45 @@ static PyObject *terminate(PyObject *self, PyObject *args) {
     return Py_None;
 }
 
-static PyObject *subtest(PyObject *self, PyObject *args) {
-    Stream *py_stream;
-    if (!PyArg_ParseTuple(args, "O", &py_stream))
-        return NULL;
-
-    PyObject *status;
-    status = Stream_start(py_stream, Py_BuildValue("()"));
-    if (status == NULL)
-        return NULL;
-
-    status = sleep_(self, Py_BuildValue("(l)", 1000));
-    if (status == NULL)
-        return NULL;
-
-    status = Stream_stop(py_stream, Py_BuildValue("()"));
-    if (status == NULL)
-        return NULL;
-
-    status = terminate(self, Py_BuildValue("()"));
-    if (status == NULL)
-        return NULL;
-
-    Py_INCREF(Py_None);
-    return Py_None;
-}
-
-static PyObject *test(PyObject *self, PyObject *args) {
-    if (!PyArg_ParseTuple(args, ""))
-        return NULL;
-
-    PaError err;
-    PyObject *status;
-
-    status = initialize(self, Py_BuildValue("()"));
-    if (status == NULL)
-        return NULL;
-
-    PaStream *stream;
-    err = Pa_OpenDefaultStream(&stream, 0, 2, paFloat32, 44100, 256,
-                               testCallback, &data);
-    if (err != paNoError) {
-        PyErr_SetString(PortAudioError, Pa_GetErrorText(err));
-        return NULL;
-    }
-    Stream *py_stream;
-    py_stream = (Stream*)StreamType.tp_alloc(&StreamType, 0);
-    py_stream->stream = stream;
-
-    subtest(self, Py_BuildValue("(O)", py_stream));
-
-    Py_INCREF(Py_None);
-    return Py_None;
-}
-
 static PyMethodDef PortAudioMethods[] = {
+    {"get_version", get_version, METH_VARARGS,
+     "get_version() -> int\n\n"
+     "Return the release number of the currently running PortAudio build,\n"
+     "e.g. 1900."},
+    {"get_version_text", get_version_text, METH_VARARGS,
+     "get_version_text() -> str\n\n"
+     "Return a textual description of the current PortAudio build, e.g.\n"
+     "\"Portaudio V19-devel 13 October 2002\"."},
     {"initialize", initialize, METH_VARARGS,
-     "Library initialization function - call this before using PortAudio."},
+     "initialize()\n\n"
+     "Initialize the library - call this before using PortAudio. With the\n"
+     "exception of get_version() and get_version_text(), this function MUST\n"
+     "be called before using any other PortAudio API functions. If\n"
+     "initialize() is called multiple times, each successful call must be\n"
+     "matched with a corresponding call to terminate(). Pairs of calls to\n"
+     "initialize()/terminate() may overlap, and are not required to be fully\n"
+     "nested. Note that if initialize() raises an exception, terminate()\n"
+     "should NOT be called."},
     {"open_default_stream", open_default_stream, METH_VARARGS,
-     "Opens the default input and/or output devices."},
+     "open_default_stream(num_input_channels, num_output_channels,\n"
+     "                    sample_format, sample_rate, frames_per_buffer,\n"
+     "                    stream_callback, user_data) -> Stream\n\n"
+     "Open the default input and/or output devices, returning a Stream."},
     {"sleep", sleep_, METH_VARARGS,
-     "Put the caller to sleep for at least 'msec' milliseconds."},
+     "sleep(msec)\n\n"
+     "Put the caller to sleep for at least 'msec' milliseconds. This\n"
+     "function may sleep longer than requested, so don't rely on this for\n"
+     "accurate musical timing."},
     {"terminate", terminate, METH_VARARGS,
-     "Library termination function - call this when finished using "
-     "PortAudio."},
-    {"test", test, METH_VARARGS, "test"},
+     "terminate()\n\n"
+     "Terminate the library - call this when finished using PortAudio. In\n"
+     "cases where initialize() has been called multiple times, each call\n"
+     "must be matched with a corresponding call to terminate(). The final\n"
+     "matching call to terminate() will automatically close any PortAudio\n"
+     "streams that are still open. terminate() MUST be called before exiting\n"
+     "a program which uses PortAudio. Failure to do so may result in serious\n"
+     "resource leaks, such as audio devices not being available until the\n"
+     "next reboot."},
     {NULL, NULL, 0, NULL},
 };
 
