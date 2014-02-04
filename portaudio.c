@@ -283,7 +283,14 @@ static int paTestCallback(const void *inputBuffer, void *outputBuffer,
     PyObject *arglist, *py_result;
     arglist = Py_BuildValue("OOOO", inputList, outputList, time, userData);
     py_result = PyObject_CallObject(my_callback, arglist);
+    Py_DECREF(time);
     Py_DECREF(arglist);
+
+    if (!py_result) {
+        PyErr_PrintEx(0);
+        Pa_Terminate();
+        exit(1);
+    }
 
     for (i = 0; i < framesPerBuffer * 2; i += 2) {
         ((float*)outputBuffer)[i] =
