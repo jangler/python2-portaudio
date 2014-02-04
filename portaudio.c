@@ -142,16 +142,17 @@ static PyObject *Stream_get_info(Stream *self, PyObject *args) {
 static PyMethodDef Stream_methods[] = {
     {"close", (PyCFunction)Stream_close, METH_VARARGS,
      "stream.close()\n\n"
-     "Close the audio stream. If the audio stream is active, it discards any\n"
-     "pending buffers as if stream.abort() had been called. May raise\n"
-     "portaudio.Error."},
+     "Close the audio stream. If the audio stream is active, it discards\n"
+     "any pending buffers as if stream.abort() had been called. May\n"
+     "raise portaudio.Error."},
     {"start", (PyCFunction)Stream_start, METH_VARARGS,
      "stream.start()\n\n"
      "Commence audio processing. May raise portaudio.Error."},
     {"stop", (PyCFunction)Stream_stop, METH_VARARGS,
      "stream.stop()\n\n"
-     "Terminate audio processing, waiting until all pending audio buffers\n"
-     "have been played before returning. May raise portaudio.Error."},
+     "Terminate audio processing, waiting until all pending audio\n"
+     "buffers have been played before returning. May raise\n"
+     "portaudio.Error."},
     {"abort", (PyCFunction)Stream_abort, METH_VARARGS,
      "stream.abort()\n\n"
      "Terminate audio processing immediately without waiting for pending\n"
@@ -159,60 +160,64 @@ static PyMethodDef Stream_methods[] = {
     {"is_active", (PyCFunction)Stream_is_active, METH_VARARGS,
      "stream.is_active() -> bool\n\n"
      "Determine whether the stream is active. A stream is active after a\n"
-     "successful call to stream.start() until it becomes inactive either as\n"
-     "a result of a call to stream.stop() or stream.abort(), or as a result\n"
-     "of a return value other than pulseaudio.CONTINUE from the stream\n"
-     "callback. In the latter case, the stream is considered inactive after\n"
-     "the last buffer has finished playing. May raise portaudio.Error."},
+     "successful call to stream.start() until it becomes inactive either\n"
+     "as a result of a call to stream.stop() or stream.abort(), or as a\n"
+     "result of a return value other than pulseaudio.CONTINUE from the\n"
+     "stream callback. In the latter case, the stream is considered\n"
+     "inactive after the last buffer has finished playing. May raise\n"
+     "portaudio.Error."},
     {"get_time", (PyCFunction)Stream_get_time, METH_VARARGS,
      "stream.get_time() -> float\n\n"
-     "Return the current time in seconds for a stream according to the same\n"
-     "clock used to generate callback timestamps. The time values are\n"
-     "monotonically increasing and have unspecified origin.\n"
-     "stream.get_time() returns valid time values for the entire life of the\n"
-     "stream, from when the stream is opened until it is closed. Starting\n"
-     "and stopping the stream does not affect the passage of time returned\n"
-     "by stream.get_time(). This time may be used for synchronizing other\n"
-     "events to the audio stream; for example, synchronizing audio to MIDI.\n"
-     "Always returns 0.0 if there is an error."},
+     "Return the current time in seconds for a stream according to the\n"
+     "same clock used to generate callback timestamps. The time values\n"
+     "are monotonically increasing and have unspecified origin.\n"
+     "stream.get_time() returns valid time values for the entire life of\n"
+     "the stream, from when the stream is opened until it is closed.\n"
+     "Starting and stopping the stream does not affect the passage of\n"
+     "time returned by stream.get_time(). This time may be used for\n"
+     "synchronizing other events to the audio stream; for example,\n"
+     "synchronizing audio to MIDI. Always returns 0.0 if there is an\n"
+     "error."},
     {"get_cpu_load", (PyCFunction)Stream_get_cpu_load, METH_VARARGS,
      "stream.get_cpu_load() -> float\n\n"
-     "Retrieve CPU usage information for the stream. The \"CPU load\" is a\n"
-     "fraction of total CPU time consumed by a callback stream's audio\n"
-     "processing routines including, but not limited to, the client-supplied\n"
-     "stream callback. This function returns a value, typically between 0.0\n"
-     "and 1.0, where 1.0 indicates that the stream callback is consuming the\n"
-     "maximum number of CPU cycles possible to maintain real-time operation.\n"
-     "The return value may exceed 1.0. A value of 0.0 will always be\n"
-     "returned for a blocking read/write stream, or if an error occurs."},
+     "Retrieve CPU usage information for the stream. The \"CPU load\" is\n"
+     "a fraction of total CPU time consumed by a callback stream's audio\n"
+     "processing routines including, but not limited to, the\n"
+     "client-supplied stream callback. This function returns a value,\n"
+     "typically between 0.0 and 1.0, where 1.0 indicates that the stream\n"
+     "callback is consuming the maximum number of CPU cycles possible to\n"
+     "maintain real-time operation. The return value may exceed 1.0. A\n"
+     "value of 0.0 will always be returned for a blocking read/write\n"
+     "stream, or if an error occurs."},
     {"is_stopped", (PyCFunction)Stream_is_stopped, METH_VARARGS,
      "stream.is_stopped() -> bool\n\n"
-     "Determine whether the stream is stopped. A stream is considered to be\n"
-     "stopped prior to a successful call to stream.start() and after a\n"
-     "successful call to stream.stop() or stream.abort(). If a stream\n"
-     "callback returns a value other than portaudio.CONTINUE the stream is\n"
-     "NOT considered to be stopped. May raise portaudio.Error."},
+     "Determine whether the stream is stopped. A stream is considered to\n"
+     "be stopped prior to a successful call to stream.start() and after\n"
+     "a successful call to stream.stop() or stream.abort(). If a stream\n"
+     "callback returns a value other than portaudio.CONTINUE the stream\n"
+     "is NOT considered to be stopped. May raise portaudio.Error."},
     {"get_info", (PyCFunction)Stream_get_info, METH_VARARGS,
      "stream.get_info() -> (float, float, float)\n\n"
      "Retrieve a tuple containing information about the stream.\n\n"
-     "    stream.get_info()[0] : The input latency of the stream in seconds.\n"
-     "    This value provides the most accurate estimate of input latency\n"
-     "    available to the implementation. It may differ significantly from\n"
-     "    the suggested latency value passed to open_stream(). The value of\n"
-     "    this field will be 0.0 for output-only streams.\n\n"
-     "    stream.get_info()[1] : The output latency of the stream in\n"
-     "    seconds. This value provides the most accurate estimate of output\n"
-     "    latency available to the implementation. It may differ\n"
+     "    stream.get_info()[0] : The input latency of the stream in\n"
+     "    seconds. This value provides the most accurate estimate of\n"
+     "    input latency available to the implementation. It may differ\n"
      "    significantly from the suggested latency value passed to\n"
-     "    open_stream(). The value of this field will be 0.0 for input-only\n"
-     "    streams.\n\n"
+     "    open_stream(). The value of this field will be 0.0 for\n"
+     "    output-only streams.\n\n"
+     "    stream.get_info()[1] : The output latency of the stream in\n"
+     "    seconds. This value provides the most accurate estimate of\n"
+     "    output latency available to the implementation. It may differ\n"
+     "    significantly from the suggested latency value passed to\n"
+     "    open_stream(). The value of this field will be 0.0 for\n"
+     "    input-only streams.\n\n"
      "    stream.get_info()[2] : The sample rate of the stream in Hertz\n"
-     "    (samples per second). In cases where the hardware sample rate is\n"
-     "    inaccurate and PortAudio is aware of it, the value of this field\n"
-     "    may be different from the sample rate parameter passed to\n"
-     "    open_stream(). If information about the actual hardware sample\n"
-     "    rate is not available, this field will have the same value as the\n"
-     "    sample rate parameter passed to open_stream()."},
+     "    (samples per second). In cases where the hardware sample rate\n"
+     "    is inaccurate and PortAudio is aware of it, the value of this\n"
+     "    field may be different from the sample rate parameter passed\n"
+     "    to open_stream(). If information about the actual hardware\n"
+     "    sample rate is not available, this field will have the same\n"
+     "    value as the sample rate parameter passed to open_stream()."},
     {NULL},
 };
 
@@ -238,12 +243,12 @@ static PyTypeObject StreamType = {
     0, /* tp_setattro */
     0, /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT, /* tp_flags */
-    "A single Stream can provide multiple channels of real-time streaming\n"
-    "audio input and output to a client application. Depending on the\n"
-    "underlying host API, it may be possible to open multiple Streams using\n"
-    "the same devie; however, this behavior is implementation-defined.\n"
-    "Portable applications should assume that a device may be simultaneously\n"
-    "used by at most one Stream.",
+    "A single Stream can provide multiple channels of real-time\n"
+    "streaming audio input and output to a client application. Depending\n"
+    "on the underlying host API, it may be possible to open multiple\n"
+    "Streams using the same devie; however, this behavior is\n"
+    "implementation-defined. Portable applications should assume that a\n"
+    "device may be simultaneously used by at most one Stream.",
     0, /* tp_traverse */
     0, /* tp_clear */
     0, /* tp_richcompare */
@@ -457,22 +462,22 @@ static PyMethodDef PortAudioMethods[] = {
      "get_host_api_info(index) -> (int, string, int, int, int)\n\n"
      "Retrieve a tuple containing information about the host API at\n"
      "'index'.\n\n"
-     "    get_host_api_info(index)[0] : The well-known unique identifier of\n"
-     "    this host API.\n\n"
-     "    get_host_api_info(index)[1] : A textual description of the host\n"
-     "    API for display on user interfaces.\n\n"
-     "    get_host_api_info(index)[2] : The number of devices belonging to\n"
-     "    this host API. This field may be used in conjunction with\n"
-     "    host_api_device_index_to_device_index() to enumerate all devices\n"
-     "    for this host API.\n\n"
-     "    get_host_api_info(index)[3] : The default index for this host API.\n"
-     "    The value will be a device index ranging from 0 to\n"
+     "    get_host_api_info(index)[0] : The well-known unique identifier\n"
+     "    of this host API.\n\n"
+     "    get_host_api_info(index)[1] : A textual description of the\n"
+     "    host API for display on user interfaces.\n\n"
+     "    get_host_api_info(index)[2] : The number of devices belonging\n"
+     "    to this host API. This field may be used in conjunction with\n"
+     "    host_api_device_index_to_device_index() to enumerate all\n"
+     "    devices for this host API.\n\n"
+     "    get_host_api_info(index)[3] : The default index for this host\n"
+     "    API. The value will be a device index ranging from 0 to\n"
      "    (get_device_count() - 1), or portaudio.NO_DEVICE if no default\n"
      "    input device is available.\n\n"
-     "    get_host_api_info(index)[4] : The default output device for this\n"
-     "    host API. The value will be a device index ranging from 0 to\n"
-     "    (get_device_count() - 1), or portaudio.NO_DEVICE if no default\n"
-     "    output device is available.\n\n"
+     "    get_host_api_info(index)[4] : The default output device for\n"
+     "    this host API. The value will be a device index ranging from 0\n"
+     "    to (get_device_count() - 1), or portaudio.NO_DEVICE if no\n"
+     "    default output device is available.\n\n"
      "May raise portaudio.Error."},
     {"get_host_api_count", get_host_api_count, METH_VARARGS,
      "get_host_api_count() -> int\n\n"
@@ -481,22 +486,23 @@ static PyMethodDef PortAudioMethods[] = {
      "portaudio.Error."},
     {"get_version", get_version, METH_VARARGS,
      "get_version() -> int\n\n"
-     "Return the release number of the currently running PortAudio build,\n"
-     "e.g. 1900."},
+     "Return the release number of the currently running PortAudio\n"
+     "build, e.g. 1900."},
     {"get_version_text", get_version_text, METH_VARARGS,
      "get_version_text() -> str\n\n"
      "Return a textual description of the current PortAudio build, e.g.\n"
      "\"Portaudio V19-devel 13 October 2002\"."},
     {"initialize", initialize, METH_VARARGS,
      "initialize()\n\n"
-     "Initialize the library - call this before using PortAudio. With the\n"
-     "exception of get_version() and get_version_text(), this function MUST\n"
-     "be called before using any other PortAudio API functions. If\n"
-     "initialize() is called multiple times, each successful call must be\n"
-     "matched with a corresponding call to terminate(). Pairs of calls to\n"
-     "initialize()/terminate() may overlap, and are not required to be fully\n"
-     "nested. Note that if initialize() raises an exception, terminate()\n"
-     "should NOT be called."},
+     "Initialize the library - call this before using PortAudio. With\n"
+     "the exception of get_version() and get_version_text(), this\n"
+     "function MUST be called before using any other PortAudio API\n"
+     "functions. If initialize() is called multiple times, each\n"
+     "successful call must be matched with a corresponding call to\n"
+     "terminate(). Pairs of calls to initialize()/terminate() may\n"
+     "overlap, and are not required to be fully nested. Note that if\n"
+     "initialize() raises an exception, terminate() should NOT be\n"
+     "called."},
     {"open_default_stream", open_default_stream, METH_VARARGS,
      "open_default_stream(num_input_channels, num_output_channels,\n"
      "                    sample_format, sample_rate, frames_per_buffer,\n"
@@ -505,18 +511,18 @@ static PyMethodDef PortAudioMethods[] = {
     {"sleep", sleep_, METH_VARARGS,
      "sleep(msec)\n\n"
      "Put the caller to sleep for at least 'msec' milliseconds. This\n"
-     "function may sleep longer than requested, so don't rely on this for\n"
-     "accurate musical timing."},
+     "function may sleep longer than requested, so don't rely on this\n"
+     "for accurate musical timing."},
     {"terminate", terminate, METH_VARARGS,
      "terminate()\n\n"
-     "Terminate the library - call this when finished using PortAudio. In\n"
-     "cases where initialize() has been called multiple times, each call\n"
-     "must be matched with a corresponding call to terminate(). The final\n"
-     "matching call to terminate() will automatically close any PortAudio\n"
-     "streams that are still open. terminate() MUST be called before exiting\n"
-     "a program which uses PortAudio. Failure to do so may result in serious\n"
-     "resource leaks, such as audio devices not being available until the\n"
-     "next reboot."},
+     "Terminate the library - call this when finished using PortAudio.\n"
+     "In cases where initialize() has been called multiple times, each\n"
+     "call must be matched with a corresponding call to terminate(). The\n"
+     "final matching call to terminate() will automatically close any\n"
+     "PortAudio streams that are still open. terminate() MUST be called\n"
+     "before exiting a program which uses PortAudio. Failure to do so\n"
+     "may result in serious resource leaks, such as audio devices not\n"
+     "being available until the next reboot."},
     {"get_sample_size", get_sample_size, METH_VARARGS,
      "get_sample_size(format) -> int\n\n"
      "Retrive the size of a given sample format in bytes. May raise\n"
