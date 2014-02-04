@@ -16,6 +16,21 @@ static void Stream_dealloc(Stream* self) {
     self->ob_type->tp_free((PyObject*)self);
 }
 
+static PyObject *Stream_close(Stream *self, PyObject *args) {
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+
+    PaError err;
+    err = Pa_CloseStream(self->stream);
+    if (err != paNoError) {
+        PyErr_SetString(PortAudioError, Pa_GetErrorText(err));
+        return NULL;
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
 static PyObject *Stream_start(Stream *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, ""))
         return NULL;
@@ -36,6 +51,21 @@ static PyObject *Stream_stop(Stream *self, PyObject *args) {
         return NULL;
 
     PaError err;
+    err = Pa_StopStream(self->stream);
+    if (err != paNoError) {
+        PyErr_SetString(PortAudioError, Pa_GetErrorText(err));
+        return NULL;
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject *Stream_abort(Stream *self, PyObject *args) {
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+
+    PaError err;
     err = Pa_AbortStream(self->stream);
     if (err != paNoError) {
         PyErr_SetString(PortAudioError, Pa_GetErrorText(err));
@@ -46,12 +76,87 @@ static PyObject *Stream_stop(Stream *self, PyObject *args) {
     return Py_None;
 }
 
+static PyObject *Stream_is_active(Stream *self, PyObject *args) {
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+
+    PaError err = Pa_IsStreamActive(self->stream);
+    if (err == 1) {
+        Py_INCREF(Py_True);
+        return Py_True;
+    } else if (err == paNoError) {
+        Py_INCREF(Py_False);
+        return Py_False;
+    } else {
+        PyErr_SetString(PortAudioError, Pa_GetErrorText(err));
+        return NULL;
+    }
+}
+
+static PyObject *Stream_get_time(Stream *self, PyObject *args) {
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+
+    PyObject *result = PyFloat_FromDouble(Pa_GetStreamTime(self->stream));
+    Py_INCREF(result);
+    return result;
+}
+
+static PyObject *Stream_get_cpu_load(Stream *self, PyObject *args) {
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+
+    PyObject *result = PyFloat_FromDouble(Pa_GetStreamCpuLoad(self->stream));
+    Py_INCREF(result);
+    return result;
+}
+
 static PyMethodDef Stream_methods[] = {
+    {"close", (PyCFunction)Stream_close, METH_VARARGS,
+     "stream.close()\n\n"
+     "Close the audio stream. If the audio stream is active, it discards any\n"
+     "pending buffers as if stream.abort() had been called. May raise\n"
+     "portaudio.Error."},
     {"start", (PyCFunction)Stream_start, METH_VARARGS,
-     "Commence audio processing."},
+     "stream.start()\n\n"
+     "Commence audio processing. May raise portaudio.Error."},
     {"stop", (PyCFunction)Stream_stop, METH_VARARGS,
-     "Terminate audio processing, waiting until all pending audio buffers "
-     "have been played before returning."},
+     "stream.stop()\n\n"
+     "Terminate audio processing, waiting until all pending audio buffers\n"
+     "have been played before returning. May raise portaudio.Error."},
+    {"abort", (PyCFunction)Stream_abort, METH_VARARGS,
+     "stream.abort()\n\n"
+     "Terminate audio processing immediately without waiting for pending\n"
+     "buffers to complete. May raise portaudio.Error."},
+    {"is_active", (PyCFunction)Stream_is_active, METH_VARARGS,
+     "stream.is_active() -> bool\n\n"
+     "Determine whether the stream is active. A stream is active after a\n"
+     "successful call to stream.start() until it becomes inactive either as\n"
+     "a result of a call to stream.stop() or stream.abort(), or as a result\n"
+     "of a return value other than pulseaudio.CONTINUE from the stream\n"
+     "callback. In the latter case, the stream is considered inactive after\n"
+     "the last buffer has finished playing. May raise portaudio.Error."},
+    {"get_time", (PyCFunction)Stream_get_time, METH_VARARGS,
+     "stream.get_time() -> float\n\n"
+     "Return the current time in seconds for a stream according to the same\n"
+     "clock used to generate callback timestamps. The time values are\n"
+     "monotonically increasing and have unspecified origin.\n"
+     "stream.get_time() returns valid time values for the entire life of the\n"
+     "stream, from when the stream is opened until it is closed. Starting\n"
+     "and stopping the stream does not affect the passage of time returned\n"
+     "by stream.get_time(). This time may be used for synchronizing other\n"
+     "events to the audio stream; for example, synchronizing audio to MIDI.\n"
+     "Always returns 0.0 if there is an error."},
+    {"get_cpu_load", (PyCFunction)Stream_get_cpu_load, METH_VARARGS,
+     "stream.get_cpu_load() -> float\n\n"
+     "Retrieve CPU usage information for the stream. The \"CPU load\" is a\n"
+     "fraction of total CPU time consumed by a callback stream's audio\n"
+     "processing routines including, but not limited to the client-supplied\n"
+     "stream callback. This function returns a value, typically between 0.0\n"
+     "and 1.0, where 1.0 indicates that the stream callback is consuming the\n"
+     "maximum number of CPU cycles possible to maintain real-time operation.\n"
+     "The return value may exceed 1.0. A value of 0.0 will always be\n"
+     "returned for a blocking read/write stream, or if an error occurs."},
     {NULL},
 };
 
@@ -77,8 +182,12 @@ static PyTypeObject StreamType = {
     0, /* tp_setattro */
     0, /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT, /* tp_flags */
-    "Provides multiple channels of real-time streaming audio input and "
-    "output to a client application.", /* tp_str */
+    "A single Stream can provide multiple channels of real-time streaming\n"
+    "audio input and output to a client application. Depending on the\n"
+    "underlying host API, it may be possible to open multiple Streams using\n"
+    "the same devie; however, this behavior is implementation-defined.\n"
+    "Portable applications should assume that a device may be simultaneously\n"
+    "used by at most one Stream.",
     0, /* tp_traverse */
     0, /* tp_clear */
     0, /* tp_richcompare */
@@ -163,40 +272,7 @@ static PyTypeObject TimeInfoType = {
     TimeInfo_methods, /* tp_methods */
 };
 
-/* module functions */
-
-static PyObject *get_version(PyObject *self, PyObject *args) {
-    if (!PyArg_ParseTuple(args, ""))
-        return NULL;
-    
-    PyObject *result = PyInt_FromLong(Pa_GetVersion());
-    Py_INCREF(result);
-    return result;
-}
-
-static PyObject *get_version_text(PyObject *self, PyObject *args) {
-    if (!PyArg_ParseTuple(args, ""))
-        return NULL;
-    
-    PyObject *result = PyString_FromString(Pa_GetVersionText());
-    Py_INCREF(result);
-    return result;
-}
-
-static PyObject *initialize(PyObject *self, PyObject *args) {
-    if (!PyArg_ParseTuple(args, ""))
-        return NULL;
-
-    PaError err;
-    err = Pa_Initialize();
-    if (err != paNoError) {
-        PyErr_SetString(PortAudioError, Pa_GetErrorText(err));
-        return NULL;
-    }
-
-    Py_INCREF(Py_None);
-    return Py_None;
-}
+/* unexposed utility functions */
 
 static PyObject *my_callback;
 
@@ -242,6 +318,41 @@ static int paTestCallback(const void *inputBuffer, void *outputBuffer,
     PyGILState_Release(gstate);
 
     return result;
+}
+
+/* module functions */
+
+static PyObject *get_version(PyObject *self, PyObject *args) {
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+    
+    PyObject *result = PyInt_FromLong(Pa_GetVersion());
+    Py_INCREF(result);
+    return result;
+}
+
+static PyObject *get_version_text(PyObject *self, PyObject *args) {
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+    
+    PyObject *result = PyString_FromString(Pa_GetVersionText());
+    Py_INCREF(result);
+    return result;
+}
+
+static PyObject *initialize(PyObject *self, PyObject *args) {
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+
+    PaError err;
+    err = Pa_Initialize();
+    if (err != paNoError) {
+        PyErr_SetString(PortAudioError, Pa_GetErrorText(err));
+        return NULL;
+    }
+
+    Py_INCREF(Py_None);
+    return Py_None;
 }
 
 static PyObject *open_default_stream(PyObject *self, PyObject *args) {
