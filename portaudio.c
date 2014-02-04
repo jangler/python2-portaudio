@@ -93,6 +93,23 @@ static PyObject *Stream_is_active(Stream *self, PyObject *args) {
     }
 }
 
+static PyObject *Stream_is_stopped(Stream *self, PyObject *args) {
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+
+    PaError err = Pa_IsStreamStopped(self->stream);
+    if (err == 1) {
+        Py_INCREF(Py_True);
+        return Py_True;
+    } else if (err == paNoError) {
+        Py_INCREF(Py_False);
+        return Py_False;
+    } else {
+        PyErr_SetString(PortAudioError, Pa_GetErrorText(err));
+        return NULL;
+    }
+}
+
 static PyObject *Stream_get_time(Stream *self, PyObject *args) {
     if (!PyArg_ParseTuple(args, ""))
         return NULL;
@@ -107,6 +124,17 @@ static PyObject *Stream_get_cpu_load(Stream *self, PyObject *args) {
         return NULL;
 
     PyObject *result = PyFloat_FromDouble(Pa_GetStreamCpuLoad(self->stream));
+    Py_INCREF(result);
+    return result;
+}
+
+static PyObject *Stream_get_info(Stream *self, PyObject *args) {
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+
+    const PaStreamInfo *info = Pa_GetStreamInfo(self->stream);
+    PyObject *result = Py_BuildValue("fff", info->inputLatency,
+                                     info->outputLatency, info->sampleRate);
     Py_INCREF(result);
     return result;
 }
@@ -157,6 +185,33 @@ static PyMethodDef Stream_methods[] = {
      "maximum number of CPU cycles possible to maintain real-time operation.\n"
      "The return value may exceed 1.0. A value of 0.0 will always be\n"
      "returned for a blocking read/write stream, or if an error occurs."},
+    {"is_stopped", (PyCFunction)Stream_is_stopped, METH_VARARGS,
+     "stream.is_stopped() -> bool\n\n"
+     "Determine whether the stream is stopped. A stream is considered to be\n"
+     "stopped prioer to a successful call to stream.start() and after a\n"
+     "successful call to stream.stop() or stream.abort(). If a stream\n"
+     "callback returns a value other than portaudio.CONTINUE the stream is\n"
+     "NOT considered to be stopped. May raise portaudio.Error."},
+    {"get_info", (PyCFunction)Stream_get_info, METH_VARARGS,
+     "stream.get_info() -> (float, float, float)\n\n"
+     "Retrieve a tuple containing information about the stream.\n\n"
+     "    stream.get_info()[0] : The input latency of the stream in seconds\n"
+     "    This value provides the most accurate estimate of input latency\n"
+     "    available to the implementation. It may differ significantly from\n"
+     "    the suggested latency value passed to open_stream(). The value of\n"
+     "    this field will be 0.0 for output-only streams.\n\n"
+     "    stream.get_info()[1] : The output latency of the stream in seconds\n"
+     "    This value provides the most accurate estimate of output latency\n"
+     "    available to the implementation. It may differ significantly from\n"
+     "    the suggested latency value passed to open_stream(). The value of\n"
+     "    this field will be 0.0 for input-only streams.\n\n"
+     "    stream.get_info()[2] : The sample rate of the stream in Hertz\n"
+     "    (samples per second). In cases where the hardware sample rate is\n"
+     "    inaccurate and PortAudio is aware of it, the value of this field\n"
+     "    may be different from the sample rate parameter passed to"
+     "    open_stream(). If information about the actual hardware sample\n"
+     "    rate is not available, this field will have the same value as the\n"
+     "    sample rate parameter passed to open_stream()."},
     {NULL},
 };
 
