@@ -309,6 +309,38 @@ static int paTestCallback(const void *inputBuffer, void *outputBuffer,
 
 /* module functions */
 
+static PyObject *get_host_api_count(PyObject *self, PyObject *args) {
+    if (!PyArg_ParseTuple(args, ""))
+        return NULL;
+
+    PaHostApiIndex count = Pa_GetHostApiCount();
+    if (count < 0) {
+        PyErr_SetString(PortAudioError, Pa_GetErrorText(count));
+        return NULL;
+    }
+    PyObject *result = PyInt_FromLong(count);
+    Py_INCREF(result);
+    return result;
+}
+
+static PyObject *get_host_api_info(PyObject *self, PyObject *args) {
+    PaHostApiIndex hostApi;
+    if (!PyArg_ParseTuple(args, "i", &hostApi))
+        return NULL;
+
+    const PaHostApiInfo *info = Pa_GetHostApiInfo(hostApi);
+    if (!info) {
+        PyErr_SetString(PortAudioError, "unspecified error");
+        return NULL;
+    }
+    PyObject *result = Py_BuildValue("isiii", info->type, info->name,
+                                     info->deviceCount,
+                                     info->defaultInputDevice,
+                                     info->defaultOutputDevice);
+    Py_INCREF(result);
+    return result;
+}
+
 static PyObject *get_sample_size(PyObject *self, PyObject *args) {
     unsigned long format;
     if (!PyArg_ParseTuple(args, "k", &format))
@@ -421,6 +453,32 @@ static PyObject *terminate(PyObject *self, PyObject *args) {
 }
 
 static PyMethodDef PortAudioMethods[] = {
+    {"get_host_api_info", get_host_api_info, METH_VARARGS,
+     "get_host_api_info(index) -> (int, string, int, int, int)\n\n"
+     "Retrieve a tuple containing information about the host API at\n"
+     "'index'.\n\n"
+     "    get_host_api_info(index)[0] : The well-known unique identifier of\n"
+     "    this host API.\n\n"
+     "    get_host_api_info(index)[1] : A textual description of the host\n"
+     "    API for display on user interfaces.\n\n"
+     "    get_host_api_info(index)[2] : The number of devices belonging to\n"
+     "    this host API. This field may be used in conjunction with\n"
+     "    host_api_device_index_to_device_index() to enumerate all devices\n"
+     "    for this host API.\n\n"
+     "    get_host_api_info(index)[3] : The default index for this host API.\n"
+     "    The value will be a device index ranging from 0 to\n"
+     "    (get_device_count() - 1), or portaudio.NO_DEVICE if no default\n"
+     "    input device is available.\n\n"
+     "    get_host_api_info(index)[4] : The default output device for this\n"
+     "    host API. The value will be a device index ranging from 0 to\n"
+     "    (get_device_count() - 1), or portaudio.NO_DEVICE if no default\n"
+     "    output device is available.\n\n"
+     "May raise portaudio.Error."},
+    {"get_host_api_count", get_host_api_count, METH_VARARGS,
+     "get_host_api_count() -> int\n\n"
+     "Retrieve the number of available host APIs. Even if a host API is\n"
+     "available it may have no devices available. May raise\n"
+     "portaudio.Error."},
     {"get_version", get_version, METH_VARARGS,
      "get_version() -> int\n\n"
      "Return the release number of the currently running PortAudio build,\n"
