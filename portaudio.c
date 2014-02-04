@@ -300,8 +300,7 @@ static int paTestCallback(const void *inputBuffer, void *outputBuffer,
     time->info = (PaStreamCallbackTimeInfo*)(timeInfo);
 
     PyObject *arglist, *py_result;
-    arglist = Py_BuildValue("OOkOO", inputList, outputList, framesPerBuffer,
-                            time, userData);
+    arglist = Py_BuildValue("OOOO", inputList, outputList, time, userData);
     py_result = PyObject_CallObject(my_callback, arglist);
     Py_DECREF(arglist);
 
