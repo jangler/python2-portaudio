@@ -260,8 +260,6 @@ static PyTypeObject StreamType = {
 
 /* unexposed utility functions */
 
-static PyObject *my_callback;
-
 static int paTestCallback(const void *inputBuffer, void *outputBuffer,
                           unsigned long framesPerBuffer,
                           const PaStreamCallbackTimeInfo *timeInfo,
@@ -270,24 +268,91 @@ static int paTestCallback(const void *inputBuffer, void *outputBuffer,
     PyGILState_STATE gstate;
     gstate = PyGILState_Ensure();
 
+    int numInputChannels, numOutputChannels, sampleFormat;
+    PyObject *callback, *dataObject;
+    PyArg_ParseTuple(userData, "iiiOO", &numInputChannels, &numOutputChannels,
+                     &sampleFormat, &callback, &dataObject);
+
     PyObject *inputList, *outputList;
-    inputList = PyList_New(0);
-    outputList = PyList_New(framesPerBuffer * 2);
+    inputList = PyList_New(framesPerBuffer * numInputChannels);
+    outputList = PyList_New(framesPerBuffer * numOutputChannels);
     int i;
-    for (i = 0; i < framesPerBuffer * 2; i += 2) {
-        PyObject *value1 = PyFloat_FromDouble(((float*)outputBuffer)[i]);
-        PyList_SetItem(outputList, i, value1);
-        PyObject *value2 = PyFloat_FromDouble(((float*)outputBuffer)[i+1]);
-        PyList_SetItem(outputList, i+1, value2);
+    /* check out this nasty bit of copy & paste */
+    if (sampleFormat == paFloat32) {
+        for (i = 0; i < framesPerBuffer * numInputChannels; i += 2) {
+            PyObject *value1 = PyFloat_FromDouble(((float*)inputBuffer)[i]);
+            PyList_SetItem(inputList, i, value1);
+            PyObject *value2 = PyFloat_FromDouble(((float*)inputBuffer)[i+1]);
+            PyList_SetItem(inputList, i+1, value2);
+        }
+        for (i = 0; i < framesPerBuffer * numOutputChannels; i += 2) {
+            PyObject *value1 = PyFloat_FromDouble(((float*)outputBuffer)[i]);
+            PyList_SetItem(outputList, i, value1);
+            PyObject *value2 = PyFloat_FromDouble(((float*)outputBuffer)[i+1]);
+            PyList_SetItem(outputList, i+1, value2);
+        }
+    } else if (sampleFormat == paInt16) {
+        for (i = 0; i < framesPerBuffer * numInputChannels; i += 2) {
+            PyObject *value1 = PyInt_FromLong(((short*)inputBuffer)[i]);
+            PyList_SetItem(inputList, i, value1);
+            PyObject *value2 = PyInt_FromLong(((short*)inputBuffer)[i+1]);
+            PyList_SetItem(inputList, i+1, value2);
+        }
+        for (i = 0; i < framesPerBuffer * numOutputChannels; i += 2) {
+            PyObject *value1 = PyInt_FromLong(((short*)outputBuffer)[i]);
+            PyList_SetItem(outputList, i, value1);
+            PyObject *value2 = PyInt_FromLong(((short*)outputBuffer)[i+1]);
+            PyList_SetItem(outputList, i+1, value2);
+        }
+    } else if (sampleFormat == paInt32) {
+        for (i = 0; i < framesPerBuffer * numInputChannels; i += 2) {
+            PyObject *value1 = PyInt_FromLong(((int*)inputBuffer)[i]);
+            PyList_SetItem(inputList, i, value1);
+            PyObject *value2 = PyInt_FromLong(((int*)inputBuffer)[i+1]);
+            PyList_SetItem(inputList, i+1, value2);
+        }
+        for (i = 0; i < framesPerBuffer * numOutputChannels; i += 2) {
+            PyObject *value1 = PyInt_FromLong(((int*)outputBuffer)[i]);
+            PyList_SetItem(outputList, i, value1);
+            PyObject *value2 = PyInt_FromLong(((int*)outputBuffer)[i+1]);
+            PyList_SetItem(outputList, i+1, value2);
+        }
+    } else if (sampleFormat == paInt8) {
+        for (i = 0; i < framesPerBuffer * numInputChannels; i += 2) {
+            PyObject *value1 = PyInt_FromLong(((char*)inputBuffer)[i]);
+            PyList_SetItem(inputList, i, value1);
+            PyObject *value2 = PyInt_FromLong(((char*)inputBuffer)[i+1]);
+            PyList_SetItem(inputList, i+1, value2);
+        }
+        for (i = 0; i < framesPerBuffer * numOutputChannels; i += 2) {
+            PyObject *value1 = PyInt_FromLong(((char*)outputBuffer)[i]);
+            PyList_SetItem(outputList, i, value1);
+            PyObject *value2 = PyInt_FromLong(((char*)outputBuffer)[i+1]);
+            PyList_SetItem(outputList, i+1, value2);
+        }
+    } else if (sampleFormat == paUInt8) {
+        for (i = 0; i < framesPerBuffer * numInputChannels; i += 2) {
+            PyObject *value1 = PyInt_FromLong(((unsigned char*)inputBuffer)[i]);
+            PyList_SetItem(inputList, i, value1);
+            PyObject *value2 = PyInt_FromLong(((unsigned char*)inputBuffer)[i+1]);
+            PyList_SetItem(inputList, i+1, value2);
+        }
+        for (i = 0; i < framesPerBuffer * numOutputChannels; i += 2) {
+            PyObject *value1 = PyInt_FromLong(((unsigned char*)outputBuffer)[i]);
+            PyList_SetItem(outputList, i, value1);
+            PyObject *value2 = PyInt_FromLong(((unsigned char*)outputBuffer)[i+1]);
+            PyList_SetItem(outputList, i+1, value2);
+        }
     }
+    /* not sure how to implement paInt24 without doing something really ugly */
 
     PyObject *time = Py_BuildValue("fff", timeInfo->inputBufferAdcTime,
                                    timeInfo->currentTime,
                                    timeInfo->outputBufferDacTime);
 
     PyObject *arglist, *py_result;
-    arglist = Py_BuildValue("OOOO", inputList, outputList, time, userData);
-    py_result = PyObject_CallObject(my_callback, arglist);
+    arglist = Py_BuildValue("OOOO", inputList, outputList, time, dataObject);
+    py_result = PyObject_CallObject(callback, arglist);
     Py_DECREF(time);
     Py_DECREF(arglist);
 
@@ -297,11 +362,41 @@ static int paTestCallback(const void *inputBuffer, void *outputBuffer,
         exit(1);
     }
 
-    for (i = 0; i < framesPerBuffer * 2; i += 2) {
-        ((float*)outputBuffer)[i] =
-            (float)PyFloat_AsDouble(PyList_GetItem(outputList, i));
-        ((float*)outputBuffer)[i+1] =
-            (float)PyFloat_AsDouble(PyList_GetItem(outputList, i+1));
+    if (sampleFormat == paFloat32) {
+        for (i = 0; i < framesPerBuffer * numOutputChannels; i += 2) {
+            ((float*)outputBuffer)[i] =
+                (float)PyFloat_AsDouble(PyList_GetItem(outputList, i));
+            ((float*)outputBuffer)[i+1] =
+                (float)PyFloat_AsDouble(PyList_GetItem(outputList, i+1));
+        }
+    } else if (sampleFormat == paInt32) {
+        for (i = 0; i < framesPerBuffer * numOutputChannels; i += 2) {
+            ((int*)outputBuffer)[i] =
+                (int)PyInt_AsLong(PyList_GetItem(outputList, i));
+            ((int*)outputBuffer)[i+1] =
+                (int)PyInt_AsLong(PyList_GetItem(outputList, i+1));
+        }
+    } else if (sampleFormat == paInt16) {
+        for (i = 0; i < framesPerBuffer * numOutputChannels; i += 2) {
+            ((short*)outputBuffer)[i] =
+                (short)PyInt_AsLong(PyList_GetItem(outputList, i));
+            ((short*)outputBuffer)[i+1] =
+                (short)PyInt_AsLong(PyList_GetItem(outputList, i+1));
+        }
+    } else if (sampleFormat == paInt8) {
+        for (i = 0; i < framesPerBuffer * numOutputChannels; i += 2) {
+            ((char*)outputBuffer)[i] =
+                (char)PyInt_AsLong(PyList_GetItem(outputList, i));
+            ((char*)outputBuffer)[i+1] =
+                (char)PyInt_AsLong(PyList_GetItem(outputList, i+1));
+        }
+    } else if (sampleFormat == paUInt8) {
+        for (i = 0; i < framesPerBuffer * numOutputChannels; i += 2) {
+            ((unsigned char*)outputBuffer)[i] =
+                (unsigned char)PyInt_AsLong(PyList_GetItem(outputList, i));
+            ((unsigned char*)outputBuffer)[i+1] =
+                (unsigned char)PyInt_AsLong(PyList_GetItem(outputList, i+1));
+        }
     }
 
     long result;
@@ -528,15 +623,17 @@ static PyObject *open_default_stream(PyObject *self, PyObject *args) {
         return NULL;
     }
     Py_XINCREF(callback);
-    Py_XDECREF(my_callback);
-    my_callback = callback;
     Py_XINCREF(userData);
+
+    PyObject *backend_data = Py_BuildValue("iiiOO", numInputChannels,
+                                           numOutputChannels, sampleFormat,
+                                           callback, userData);
 
     PaStream *stream;
     PaError err;
     err = Pa_OpenDefaultStream(&stream, numInputChannels, numOutputChannels,
                                sampleFormat, sampleRate, framesPerBuffer,
-                               paTestCallback, (void*)userData);
+                               paTestCallback, (void*)backend_data);
     if (err != paNoError) {
         PyErr_SetString(PortAudioError, Pa_GetErrorText(err));
         return NULL;
